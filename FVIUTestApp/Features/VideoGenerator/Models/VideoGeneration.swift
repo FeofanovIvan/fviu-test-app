@@ -1,0 +1,131 @@
+import Foundation
+import SwiftUI
+
+enum VideoAspectRatio: String, CaseIterable, Codable, Identifiable {
+    case portrait = "9:16"
+    case square = "1:1"
+    case landscape = "16:9"
+
+    var id: String { rawValue }
+}
+
+enum VideoQuality: String, CaseIterable, Codable, Identifiable {
+    case p540 = "540p"
+    case p720 = "720p"
+    case p1080 = "1080p"
+    case k4 = "4K"
+
+    var id: String { rawValue }
+}
+
+struct VideoTemplate: Identifiable, Equatable {
+    let id: UUID
+    let title: String
+    let category: String
+    let prompt: String
+    let colors: [Color]
+    /// Asset catalog name of the template's thumbnail/preview photo (Figma export).
+    let imageAssetName: String
+    /// How many source photos this template needs from the user (most need one; a few need two).
+    let requiredPhotoCount: Int
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        category: String,
+        prompt: String,
+        colors: [Color],
+        imageAssetName: String = "VideoTemplateSample",
+        requiredPhotoCount: Int = 1
+    ) {
+        self.id = id
+        self.title = title
+        self.category = category
+        self.prompt = prompt
+        self.colors = colors
+        self.imageAssetName = imageAssetName
+        self.requiredPhotoCount = requiredPhotoCount
+    }
+}
+
+struct SelectedVideoPhoto: Equatable {
+    let data: Data
+}
+
+struct VideoGeneration: Identifiable, Equatable, Codable {
+    enum Status: Equatable {
+        case preparing
+        case generating
+        case finalizing
+        case ready(URL?)
+    }
+
+    let id: UUID
+    let prompt: String
+    let status: Status
+    let createdAt: Date
+    let aspectRatio: VideoAspectRatio
+    let quality: VideoQuality
+
+    init(
+        id: UUID = UUID(),
+        prompt: String,
+        status: Status,
+        createdAt: Date = .now,
+        aspectRatio: VideoAspectRatio = .portrait,
+        quality: VideoQuality = .p540
+    ) {
+        self.id = id
+        self.prompt = prompt
+        self.status = status
+        self.createdAt = createdAt
+        self.aspectRatio = aspectRatio
+        self.quality = quality
+    }
+}
+
+extension VideoGeneration.Status: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case url
+    }
+
+    private enum StatusType: String, Codable {
+        case preparing
+        case generating
+        case finalizing
+        case ready
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(StatusType.self, forKey: .type)
+
+        switch type {
+        case .preparing:
+            self = .preparing
+        case .generating:
+            self = .generating
+        case .finalizing:
+            self = .finalizing
+        case .ready:
+            self = .ready(try container.decodeIfPresent(URL.self, forKey: .url))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        switch self {
+        case .preparing:
+            try container.encode(StatusType.preparing, forKey: .type)
+        case .generating:
+            try container.encode(StatusType.generating, forKey: .type)
+        case .finalizing:
+            try container.encode(StatusType.finalizing, forKey: .type)
+        case .ready(let url):
+            try container.encode(StatusType.ready, forKey: .type)
+            try container.encodeIfPresent(url, forKey: .url)
+        }
+    }
+}
