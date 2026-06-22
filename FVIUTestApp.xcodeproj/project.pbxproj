@@ -10,6 +10,10 @@
 		3A6D5D0D2C24000100FVIU10 /* ApphudSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 3A6D5D0D2C24000100FVIU11 /* ApphudSDK */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXFileReference section */
+		3A6D5D0D2C24000100FVIU13 /* FVIUTestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FVIUTestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		3A6D5D0D2C24000100FVIU01 /* FVIUTestApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -41,6 +45,7 @@
 		3A6D5D0D2C24000100FVIU04 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				3A6D5D0D2C24000100FVIU13 /* FVIUTestApp.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -68,6 +73,7 @@
 				3A6D5D0D2C24000100FVIU11 /* ApphudSDK */,
 			);
 			productName = FVIUTestApp;
+			productReference = 3A6D5D0D2C24000100FVIU13 /* FVIUTestApp.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
