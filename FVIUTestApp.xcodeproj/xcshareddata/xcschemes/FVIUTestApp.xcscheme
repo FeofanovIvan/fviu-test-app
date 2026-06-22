@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "3A6D5D0D2C24000100FVIU06"
-               BuildableName = "FVIUTestApp"
+               BuildableName = "FVIUTestApp.app"
                BlueprintName = "FVIUTestApp"
                ReferencedContainer = "container:FVIUTestApp.xcodeproj">
             </BuildableReference>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3A6D5D0D2C24000100FVIU06"
-            BuildableName = "FVIUTestApp"
+            BuildableName = "FVIUTestApp.app"
             BlueprintName = "FVIUTestApp"
             ReferencedContainer = "container:FVIUTestApp.xcodeproj">
          </BuildableReference>
@@ -62,7 +62,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "3A6D5D0D2C24000100FVIU06"
-            BuildableName = "FVIUTestApp"
+            BuildableName = "FVIUTestApp.app"
             BlueprintName = "FVIUTestApp"
             ReferencedContainer = "container:FVIUTestApp.xcodeproj">
          </BuildableReference>
