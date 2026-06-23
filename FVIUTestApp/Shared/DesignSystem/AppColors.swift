@@ -1,3 +1,9 @@
+//
+//  AppColors.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import SwiftUI
 
 enum AppColors {
@@ -14,7 +20,6 @@ enum AppColors {
     static let border = Color.white.opacity(0.14)
 
     // Figma "glass" surfaces used on Home/Paywall cards.
-    /// Exact Figma card fill (#1F191F) — flat, no transparency.
     static let glassDark = Color(red: 0x1F / 255.0, green: 0x19 / 255.0, blue: 0x1F / 255.0)
     static let glassDarkLight = Color(red: 0.122, green: 0.098, blue: 0.122).opacity(0.4)
     static let glassWhite = Color.white.opacity(0.15)
@@ -22,12 +27,9 @@ enum AppColors {
     static let gradientBlue = Color(red: 0.596, green: 0.776, blue: 0.969)
     static let gradientPink = Color(red: 0.922, green: 0.357, blue: 0.573)
 
-    /// Lavender highlight used for emphasized words inside body copy (e.g. Chat welcome title).
     static let chatHighlight = Color(red: 0.73, green: 0.65, blue: 0.95)
 
-    /// Figma "#1F191F80" — assistant chat bubble fill, 50% opacity over the blurred background.
     static let chatAssistantBubble = Color(red: 0x1F / 255.0, green: 0x19 / 255.0, blue: 0x1F / 255.0).opacity(0.5)
 
-    /// Figma "#1F191F66" — chat history row card fill.
     static let historyCardBackground = Color(red: 0x1F / 255.0, green: 0x19 / 255.0, blue: 0x1F / 255.0).opacity(0x66 / 255.0)
 }

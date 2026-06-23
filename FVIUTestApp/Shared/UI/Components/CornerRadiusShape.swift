@@ -1,9 +1,11 @@
+//
+//  CornerRadiusShape.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import SwiftUI
 
-/// A rectangle with independently configurable per-corner radii.
-/// Used to reproduce Figma's asymmetric "chat bubble" corners (e.g. a tail-less
-/// corner on the side facing the message's own avatar) without requiring iOS 16.4's
-/// `UnevenRoundedRectangle`, keeping compatibility with the ТЗ's iOS 16 minimum.
 struct CornerRadiusShape: Shape {
     var topLeft: CGFloat = 0
     var topRight: CGFloat = 0

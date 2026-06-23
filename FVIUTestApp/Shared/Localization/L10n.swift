@@ -1,3 +1,9 @@
+//
+//  L10n.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import Foundation
 
 enum L10n {
@@ -9,6 +15,7 @@ enum L10n {
     static let videoTitle = String(localized: "Video Generator")
     static let videoSubtitle = String(localized: "Turn a prompt into a short AI video.")
     static let videoCatalogTitle = String(localized: "AI Video")
+    static let videoCatalogLoading = String(localized: "Loading templates...")
     static let premiumHintTitle = String(localized: "Premium access")
     static let premiumHintMessage = String(localized: "Unlock chat and video generation without restarting the app.")
     static let premiumActiveTitle = String(localized: "Premium active")
