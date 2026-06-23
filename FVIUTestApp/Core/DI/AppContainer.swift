@@ -1,3 +1,9 @@
+//
+//  AppContainer.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import Foundation
 
 @MainActor
@@ -10,6 +16,7 @@ final class AppContainer: ObservableObject {
     let chatHistoryStore: ChatHistoryStoring
     let videoService: VideoServicing
     let videoHistoryStore: VideoHistoryStoring
+    let videoTemplateStore: VideoTemplateStore
     let photoAccessManager: PhotoLibraryAccessManaging
 
     init(
@@ -21,6 +28,7 @@ final class AppContainer: ObservableObject {
         chatHistoryStore: ChatHistoryStoring,
         videoService: VideoServicing,
         videoHistoryStore: VideoHistoryStoring,
+        videoTemplateStore: VideoTemplateStore,
         photoAccessManager: PhotoLibraryAccessManaging
     ) {
         self.appState = appState
@@ -31,6 +39,7 @@ final class AppContainer: ObservableObject {
         self.chatHistoryStore = chatHistoryStore
         self.videoService = videoService
         self.videoHistoryStore = videoHistoryStore
+        self.videoTemplateStore = videoTemplateStore
         self.photoAccessManager = photoAccessManager
     }
 
@@ -39,6 +48,7 @@ final class AppContainer: ObservableObject {
         let networkClient = NetworkClient()
         let apphudManager = ApphudManager()
         let subscriptionManager = SubscriptionManager(apphudManager: apphudManager)
+        let videoService = VideoService(networkClient: networkClient)
 
         return AppContainer(
             appState: appState,
@@ -47,8 +57,9 @@ final class AppContainer: ObservableObject {
             apphudManager: apphudManager,
             chatService: ChatService(networkClient: networkClient),
             chatHistoryStore: ChatHistoryStore(),
-            videoService: VideoService(networkClient: networkClient),
+            videoService: videoService,
             videoHistoryStore: VideoHistoryStore(),
+            videoTemplateStore: VideoTemplateStore(videoService: videoService),
             photoAccessManager: PhotoLibraryAccessManager()
         )
     }
@@ -88,7 +99,11 @@ final class AppContainer: ObservableObject {
     }
 
     func makeVideoCatalogViewModel() -> VideoCatalogViewModel {
-        VideoCatalogViewModel(appState: appState, photoAccessManager: photoAccessManager)
+        VideoCatalogViewModel(
+            appState: appState,
+            photoAccessManager: photoAccessManager,
+            templateStore: videoTemplateStore
+        )
     }
 
     func makeVideoGeneratorViewModel(templateID: UUID) -> VideoGeneratorViewModel {
@@ -98,6 +113,7 @@ final class AppContainer: ObservableObject {
             subscriptionManager: subscriptionManager,
             historyStore: videoHistoryStore,
             photoAccessManager: photoAccessManager,
+            templateStore: videoTemplateStore,
             templateID: templateID
         )
     }

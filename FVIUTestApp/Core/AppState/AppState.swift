@@ -1,3 +1,9 @@
+//
+//  AppState.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import Foundation
 
 @MainActor
@@ -16,8 +22,6 @@ final class AppState: ObservableObject {
         navigationPath.append(route)
     }
 
-    /// Pops the current screen, returning to whatever was on top of the stack before it. Used
-    /// when a permission the screen depends on (e.g. photo library access) gets denied.
     func navigateBack() {
         guard !navigationPath.isEmpty else { return }
         navigationPath.removeLast()
