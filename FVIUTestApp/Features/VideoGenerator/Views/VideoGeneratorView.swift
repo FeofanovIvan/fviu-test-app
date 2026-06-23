@@ -1,3 +1,4 @@
+import AVFoundation
 import PhotosUI
 import Photos
 import SwiftUI
@@ -572,6 +573,9 @@ private struct VideoResultView: View {
     let generation: VideoGeneration
     let onReplace: () -> Void
     @State private var isSavedNotificationPresented = false
+    @State private var player: AVPlayer?
+    @State private var isPlaying = false
+    @State private var loopObserver: NSObjectProtocol?
 
     var body: some View {
         ZStack {
@@ -611,10 +615,12 @@ private struct VideoResultView: View {
         ZStack {
             resultArtwork
 
-            Image(systemName: "play.fill")
-                .font(.system(size: Metrics.resultPlayIconSize, weight: .regular))
-                .foregroundStyle(.white.opacity(0.9))
-                .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)
+            if !isPlaying {
+                Image(systemName: "play.fill")
+                    .font(.system(size: Metrics.resultPlayIconSize, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)
+            }
 
             VStack {
                 HStack {
@@ -641,23 +647,18 @@ private struct VideoResultView: View {
         }
         .frame(width: Metrics.resultPreviewWidth, height: Metrics.resultPreviewHeight)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.resultPreviewCornerRadius))
+        .contentShape(Rectangle())
+        .onTapGesture { togglePlayback() }
+        .onAppear { preparePlayer() }
+        .onDisappear { teardownPlayer() }
     }
 
     @ViewBuilder
     private var resultArtwork: some View {
-        if let resultURL {
-            AsyncImage(url: resultURL) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                default:
-                    fallbackResultArtwork
-                }
-            }
-            .frame(width: Metrics.resultPreviewWidth, height: Metrics.resultPreviewHeight)
-            .clipped()
+        if let player {
+            VideoLayerView(player: player)
+                .frame(width: Metrics.resultPreviewWidth, height: Metrics.resultPreviewHeight)
+                .clipped()
         } else {
             fallbackResultArtwork
         }
@@ -678,6 +679,45 @@ private struct VideoResultView: View {
         return nil
     }
 
+    /// Builds the player lazily once the result preview appears, and tears it down when it
+    /// leaves the view hierarchy so playback/network activity doesn't continue in the background.
+    private func preparePlayer() {
+        guard player == nil, let resultURL else { return }
+
+        let item = AVPlayerItem(url: resultURL)
+        let newPlayer = AVPlayer(playerItem: item)
+
+        loopObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak newPlayer] _ in
+            newPlayer?.seek(to: .zero)
+        }
+
+        player = newPlayer
+    }
+
+    private func teardownPlayer() {
+        if let loopObserver {
+            NotificationCenter.default.removeObserver(loopObserver)
+        }
+        loopObserver = nil
+        player?.pause()
+        player = nil
+        isPlaying = false
+    }
+
+    private func togglePlayback() {
+        guard let player else { return }
+        if isPlaying {
+            player.pause()
+        } else {
+            player.play()
+        }
+        isPlaying.toggle()
+    }
+
     private func saveResultToGallery() async {
         let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
         let resolvedStatus = status == .notDetermined ? await PHPhotoLibrary.requestAuthorization(for: .addOnly) : status
@@ -685,13 +725,23 @@ private struct VideoResultView: View {
             return
         }
 
-        guard let image = UIImage(named: "VideoTemplateSample") else {
-            return
-        }
+        guard let resultURL else { return }
 
         do {
+            let (data, _) = try await URLSession.shared.data(from: resultURL)
+            guard !data.isEmpty else {
+                throw AppError(title: L10n.videoGenerationErrorTitle, message: L10n.videoGenerationErrorMessage)
+            }
+
+            let fileExtension = resultURL.pathExtension.isEmpty ? "mp4" : resultURL.pathExtension
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension(fileExtension)
+            try data.write(to: tempURL)
+            defer { try? FileManager.default.removeItem(at: tempURL) }
+
             try await PHPhotoLibrary.shared().performChanges {
-                PHAssetChangeRequest.creationRequestForAsset(from: image)
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: tempURL)
             }
 
             isSavedNotificationPresented = true
@@ -702,6 +752,15 @@ private struct VideoResultView: View {
                 }
             }
         } catch {
+            // The API's `video_url` is a plain remote file (see openapi schema — `video_url` is
+            // just a string, not an HLS manifest), so a direct byte download is the right
+            // approach here. `AVAssetExportSession` was tried instead and produced internal
+            // VideoToolbox/CoreMedia failures ("Fig"/"VRP"/"Remaker" in the console) on both
+            // Simulator and a real device, so that path was reverted in favor of this simpler,
+            // more reliable one. Logged in DEBUG to make any remaining failure diagnosable.
+            #if DEBUG
+            debugPrint("Video save to gallery failed:", error)
+            #endif
             isSavedNotificationPresented = false
         }
     }
@@ -711,6 +770,44 @@ private struct VideoResultView: View {
             return url
         }
         return URL(string: "https://nebulaapps.site")!
+    }
+}
+
+/// Lightweight `AVPlayerLayer` host. Used instead of AVKit's `VideoPlayer` so the generated video
+/// renders with none of AVKit's own playback chrome — the custom play icon/Replace pill drawn by
+/// `VideoResultView` are the only controls, matching the Figma overlay exactly.
+private struct VideoLayerView: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> PlayerLayerContainerView {
+        let view = PlayerLayerContainerView()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspectFill
+        return view
+    }
+
+    func updateUIView(_ uiView: PlayerLayerContainerView, context: Context) {
+        uiView.playerLayer.player = player
+    }
+}
+
+private final class PlayerLayerContainerView: UIView {
+    let playerLayer = AVPlayerLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        layer.addSublayer(playerLayer)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        playerLayer.frame = bounds
     }
 }
 
