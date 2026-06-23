@@ -25,6 +25,7 @@ final class VideoGeneratorViewModel: ObservableObject {
     private let photoAccessManager: PhotoLibraryAccessManaging
     private let templateStore: VideoTemplateStore
     private let userID: String
+    private var previewPrefetchTask: Task<Void, Never>?
 
     init(
         videoService: VideoServicing,
@@ -49,6 +50,12 @@ final class VideoGeneratorViewModel: ObservableObject {
         self.selectedTemplate = template
         self.prompt = template.prompt
         self.selectedPhotos = Array(repeating: nil, count: template.requiredPhotoCount)
+
+        prefetchTemplatesAroundSelection()
+    }
+
+    deinit {
+        previewPrefetchTask?.cancel()
     }
 
     var canGenerate: Bool {
@@ -64,6 +71,35 @@ final class VideoGeneratorViewModel: ObservableObject {
         prompt = template.prompt
         resizeSelectedPhotos(for: template.requiredPhotoCount)
         state = .idle
+        prefetchTemplatesAroundSelection()
+    }
+
+    func shouldPlayVideo(for template: VideoTemplate) -> Bool {
+        template.id == selectedTemplate.id
+    }
+
+    func isVideoOnScreen(for template: VideoTemplate) -> Bool {
+        guard
+            let selectedIndex = carouselTemplates.firstIndex(of: selectedTemplate),
+            let templateIndex = carouselTemplates.firstIndex(of: template)
+        else { return false }
+        return abs(templateIndex - selectedIndex) <= 2
+    }
+
+    func prefetchTemplatesAroundSelection() {
+        let urls = templatesAroundSelection(radius: 0).compactMap(\.previewURL)
+        guard !urls.isEmpty else { return }
+
+        previewPrefetchTask?.cancel()
+        previewPrefetchTask = Task {
+            await withTaskGroup(of: Void.self) { group in
+                for url in urls {
+                    group.addTask {
+                        _ = try? await VideoPreviewPrefetcher.shared.localURL(for: url, priority: .prefetch)
+                    }
+                }
+            }
+        }
     }
 
     func requestPhotoAccessForPicker() async -> Bool {
@@ -108,7 +144,12 @@ final class VideoGeneratorViewModel: ObservableObject {
             return
         }
 
-        let hasAccess = await subscriptionManager.refreshSubscriptionStatus() || (appState?.hasPremiumAccess ?? false)
+        let hasAccess: Bool
+        if AppConfig.isVideoAccessFree {
+            hasAccess = true
+        } else {
+            hasAccess = await subscriptionManager.refreshSubscriptionStatus() || (appState?.hasPremiumAccess ?? false)
+        }
         guard hasAccess else {
             appState?.presentPaywall()
             return
@@ -144,5 +185,16 @@ final class VideoGeneratorViewModel: ObservableObject {
         } else if selectedPhotos.count > requiredCount {
             selectedPhotos = Array(selectedPhotos.prefix(requiredCount))
         }
+    }
+
+    private func templatesAroundSelection(radius: Int) -> [VideoTemplate] {
+        let templates = carouselTemplates
+        guard let selectedIndex = templates.firstIndex(of: selectedTemplate) else {
+            return Array(templates.prefix(radius * 2 + 1))
+        }
+
+        let lowerBound = max(templates.startIndex, selectedIndex - radius)
+        let upperBound = min(templates.index(before: templates.endIndex), selectedIndex + radius)
+        return Array(templates[lowerBound...upperBound])
     }
 }

@@ -7,6 +7,8 @@
 import Foundation
 
 enum AppConfig {
+    static let isVideoAccessFree = false
+
     static let apphudAPIKey = "app_FmCjFTwjWpcLSafxT8vCDeVffJyfFS"
     static let apphudPaywallID = "main"
     static let apiApplicationID = "com.test.test"

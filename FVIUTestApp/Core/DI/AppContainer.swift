@@ -70,6 +70,10 @@ final class AppContainer: ObservableObject {
         appState.updatePremiumAccess(hasPremium)
 
         Task { [weak self] in
+            await self?.videoTemplateStore.loadIfNeeded()
+        }
+
+        Task { [weak self] in
             guard let self else { return }
             for await hasPremium in subscriptionManager.subscriptionUpdates {
                 if hasPremium {

@@ -62,7 +62,7 @@ final class VideoCatalogViewModel: ObservableObject {
 
     func openTemplate(_ template: VideoTemplate) async {
         guard let appState else { return }
-        guard appState.hasPremiumAccess else {
+        guard AppConfig.isVideoAccessFree || appState.hasPremiumAccess else {
             appState.presentPaywall(afterPurchase: .videoTemplateDetail(template.id))
             return
         }

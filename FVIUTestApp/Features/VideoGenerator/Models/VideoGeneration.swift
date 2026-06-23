@@ -15,10 +15,10 @@ enum VideoAspectRatio: String, CaseIterable, Codable, Identifiable {
 }
 
 enum VideoQuality: String, CaseIterable, Codable, Identifiable {
+    case p360 = "360p"
     case p540 = "540p"
     case p720 = "720p"
     case p1080 = "1080p"
-    case k4 = "4K"
 
     var id: String { rawValue }
 }

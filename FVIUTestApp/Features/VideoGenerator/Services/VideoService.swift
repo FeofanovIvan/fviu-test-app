@@ -89,7 +89,7 @@ final class VideoService: VideoServicing {
         throw AppError(title: L10n.videoGenerationErrorTitle, message: L10n.videoGenerationErrorMessage)
     }
 
-    func fetchTemplates(userID: String) async throws -> [VideoTemplate] {
+    func fetchTemplateCatalog(userID: String) async throws -> [VideoTemplateDTO] {
         let endpoint = Endpoint(
             baseURL: AppConfig.videoBaseURL,
             path: "/api/v1/get_templates/\(AppConfig.apiApplicationID)",
@@ -101,20 +101,6 @@ final class VideoService: VideoServicing {
         do {
             let response = try await networkClient.request(endpoint, as: TemplatesCatalogResponse.self)
             return response.templates
-                .filter(\.isActive)
-                .compactMap { dto in
-                    let previewURLString = dto.previewLarge ?? dto.previewSmall
-                    guard let previewURLString, let previewURL = URL(string: previewURLString) else {
-                        return nil
-                    }
-
-                    return VideoTemplate(
-                        title: dto.name,
-                        category: dto.category,
-                        prompt: dto.prompt,
-                        previewURL: previewURL
-                    )
-                }
         } catch let error as NetworkError {
             throw error.appError
         } catch {

@@ -24,7 +24,7 @@ struct TemplatesCatalogResponse: Decodable {
     let templates: [VideoTemplateDTO]
 }
 
-struct VideoTemplateDTO: Decodable {
+struct VideoTemplateDTO: Codable {
     let templateId: Int
     let name: String
     let category: String

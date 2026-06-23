@@ -118,14 +118,16 @@ struct VideoGeneratorView: View {
     }
 
     private var previewImage: some View {
-        TemplatePagingCarousel(
-            templates: viewModel.carouselTemplates,
-            selectedTemplate: Binding(
-                get: { viewModel.selectedTemplate },
-                set: { viewModel.selectTemplate($0) }
-            )
+        GeometryReader { proxy in
+
+            let carouselHeight = proxy.size.height
+
+            TemplatePagingCarousel(viewModel: viewModel)
+                .frame(height: carouselHeight)
+        }
+        .frame(
+            height: UIScreen.main.bounds.height * 0.45
         )
-        .frame(height: Metrics.previewHeight)
         .padding(.horizontal, -Metrics.screenHorizontalPadding)
     }
 
@@ -226,8 +228,6 @@ private enum Metrics {
     static var contentBottomPadding: CGFloat { 28 * scale }
     static var sectionSpacing: CGFloat { 18 * scale }
 
-    static var previewWidth: CGFloat { 144 * scale }
-    static var previewHeight: CGFloat { 272 * scale }
     static var previewSpacing: CGFloat { 14 * scale }
     static var previewCornerRadius: CGFloat { 20 * scale }
 
@@ -289,64 +289,215 @@ private enum Metrics {
 }
 
 private struct TemplatePagingCarousel: View {
-    let templates: [VideoTemplate]
-    @Binding var selectedTemplate: VideoTemplate
+    @ObservedObject var viewModel: VideoGeneratorViewModel
 
     @State private var dragOffset: CGFloat = 0
 
-    private var selectedIndex: Int {
-        templates.firstIndex(of: selectedTemplate) ?? 0
+    private let aspectRatio: CGFloat = 9.0 / 16.0
+
+    private var templates: [VideoTemplate] {
+        viewModel.carouselTemplates
     }
 
-    private var pageWidth: CGFloat {
-        Metrics.previewWidth + Metrics.previewSpacing
+    private func pageWidth(cardWidth: CGFloat) -> CGFloat {
+        cardWidth + Metrics.previewSpacing
+    }
+
+    private var selectedIndex: Int {
+        templates.firstIndex(of: viewModel.selectedTemplate) ?? 0
+    }
+
+    private var previousTemplate: VideoTemplate? {
+        let previousIndex = selectedIndex - 1
+        guard templates.indices.contains(previousIndex) else { return nil }
+        return templates[previousIndex]
+    }
+
+    private var nextTemplate: VideoTemplate? {
+        let nextIndex = selectedIndex + 1
+        guard templates.indices.contains(nextIndex) else { return nil }
+        return templates[nextIndex]
     }
 
     var body: some View {
         GeometryReader { proxy in
-            HStack(spacing: Metrics.previewSpacing) {
-                ForEach(templates) { template in
-                    RemoteVideoThumbnail(url: template.previewURL)
-                        .frame(width: Metrics.previewWidth, height: Metrics.previewHeight)
+
+            let cardHeight = proxy.size.height * 0.98
+            let cardWidth = cardHeight * aspectRatio
+            let pageWidth = pageWidth(cardWidth: cardWidth)
+
+            ZStack {
+                if let previousTemplate {
+                    RemoteVideoFramePreview(url: previousTemplate.previewURL)
+                        .frame(width: cardWidth, height: cardHeight)
                         .clipShape(RoundedRectangle(cornerRadius: Metrics.previewCornerRadius))
                         .clipped()
-                        .contentShape(RoundedRectangle(cornerRadius: Metrics.previewCornerRadius))
-                        .onTapGesture {
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                                selectedTemplate = template
-                            }
-                        }
+                        .offset(x: -pageWidth + dragOffset)
                 }
+
+                if let nextTemplate {
+                    RemoteVideoFramePreview(url: nextTemplate.previewURL)
+                        .frame(width: cardWidth, height: cardHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: Metrics.previewCornerRadius))
+                        .clipped()
+                        .offset(x: pageWidth + dragOffset)
+                }
+
+                RemoteVideoThumbnail(
+                    url: viewModel.selectedTemplate.previewURL,
+                    isActive: true,
+                    isOnScreen: true
+                )
+                .frame(
+                    width: cardWidth,
+                    height: cardHeight
+                )
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: Metrics.previewCornerRadius
+                    )
+                )
+                .clipped()
+                .offset(x: dragOffset)
             }
-            .padding(.horizontal, max((proxy.size.width - Metrics.previewWidth) / 2, 0))
-            .offset(x: -CGFloat(selectedIndex) * pageWidth + dragOffset)
-            .animation(.spring(response: 0.32, dampingFraction: 0.86), value: selectedTemplate.id)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
+            .contentShape(Rectangle())
+            .animation(
+                .spring(
+                    response: 0.32,
+                    dampingFraction: 0.86
+                ),
+                value: viewModel.selectedTemplate.id
+            )
             .gesture(
                 DragGesture(minimumDistance: 8)
                     .onChanged { value in
-                        dragOffset = max(min(value.translation.width, pageWidth), -pageWidth)
+
+                        dragOffset = max(
+                            min(
+                                value.translation.width,
+                                pageWidth
+                            ),
+                            -pageWidth
+                        )
                     }
                     .onEnded { value in
+
                         let threshold = pageWidth * 0.22
-                        let translation = value.predictedEndTranslation.width
+                        let translation = abs(value.predictedEndTranslation.width) > abs(value.translation.width)
+                            ? value.predictedEndTranslation.width
+                            : value.translation.width
+
                         let nextIndex: Int
 
                         if translation < -threshold {
-                            nextIndex = min(selectedIndex + 1, templates.count - 1)
+
+                            nextIndex = min(
+                                selectedIndex + 1,
+                                templates.count - 1
+                            )
+
                         } else if translation > threshold {
-                            nextIndex = max(selectedIndex - 1, 0)
+
+                            nextIndex = max(
+                                selectedIndex - 1,
+                                0
+                            )
+
                         } else {
+
                             nextIndex = selectedIndex
                         }
 
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                            selectedTemplate = templates[nextIndex]
+                        withAnimation(
+                            .spring(
+                                response: 0.32,
+                                dampingFraction: 0.86
+                            )
+                        ) {
+                            if templates.indices.contains(nextIndex) {
+                                viewModel.selectTemplate(templates[nextIndex])
+                            }
                             dragOffset = 0
                         }
                     }
             )
         }
         .clipped()
+    }
+}
+
+private struct RemoteVideoFramePreview: View {
+    let url: URL?
+
+    @State private var image: UIImage?
+    @State private var requestID = UUID()
+    @State private var loadTask: Task<Void, Never>?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                RoundedRectangle(cornerRadius: Metrics.previewCornerRadius)
+                    .fill(AppColors.glassDark.opacity(0.35))
+            }
+        }
+        .clipped()
+        .onAppear { loadFrame() }
+        .onDisappear { cancelLoading() }
+        .onChange(of: url) { _ in loadFrame() }
+    }
+
+    @MainActor
+    private func loadFrame() {
+        loadTask?.cancel()
+        image = nil
+
+        guard let url else {
+            loadTask = nil
+            return
+        }
+
+        let id = UUID()
+        requestID = id
+
+        loadTask = Task {
+            do {
+                let localURL = try await VideoPreviewPrefetcher.shared.localURL(for: url, priority: .prefetch)
+                guard !Task.isCancelled else { return }
+                let frame = await makeFrame(from: localURL)
+                await MainActor.run {
+                    guard requestID == id else { return }
+                    image = frame
+                }
+            } catch {
+            }
+        }
+    }
+
+    private func cancelLoading() {
+        loadTask?.cancel()
+        loadTask = nil
+    }
+
+    private func makeFrame(from localURL: URL) async -> UIImage? {
+        await Task.detached(priority: .utility) {
+            let asset = AVAsset(url: localURL)
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 720, height: 1280)
+
+            do {
+                let frameTime = CMTime(seconds: 0.2, preferredTimescale: 600)
+                let cgImage = try generator.copyCGImage(at: frameTime, actualTime: nil)
+                return UIImage(cgImage: cgImage)
+            } catch {
+                return nil
+            }
+        }.value
     }
 }
 
@@ -651,7 +802,7 @@ private struct VideoResultView: View {
     @ViewBuilder
     private var resultArtwork: some View {
         if let player {
-            VideoLayerView(player: player)
+            VideoPlayerLayerView(player: player)
                 .frame(width: Metrics.resultPreviewWidth, height: Metrics.resultPreviewHeight)
                 .clipped()
         } else {
@@ -757,41 +908,6 @@ private struct VideoResultView: View {
             return url
         }
         return URL(string: "https://nebulaapps.site")!
-    }
-}
-
-private struct VideoLayerView: UIViewRepresentable {
-    let player: AVPlayer
-
-    func makeUIView(context: Context) -> PlayerLayerContainerView {
-        let view = PlayerLayerContainerView()
-        view.playerLayer.player = player
-        view.playerLayer.videoGravity = .resizeAspectFill
-        return view
-    }
-
-    func updateUIView(_ uiView: PlayerLayerContainerView, context: Context) {
-        uiView.playerLayer.player = player
-    }
-}
-
-private final class PlayerLayerContainerView: UIView {
-    let playerLayer = AVPlayerLayer()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .clear
-        layer.addSublayer(playerLayer)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        playerLayer.frame = bounds
     }
 }
 

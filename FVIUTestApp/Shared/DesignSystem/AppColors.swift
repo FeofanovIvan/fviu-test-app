@@ -19,7 +19,6 @@ enum AppColors {
     static let error = Color(red: 1.0, green: 0.32, blue: 0.38)
     static let border = Color.white.opacity(0.14)
 
-    // Figma "glass" surfaces used on Home/Paywall cards.
     static let glassDark = Color(red: 0x1F / 255.0, green: 0x19 / 255.0, blue: 0x1F / 255.0)
     static let glassDarkLight = Color(red: 0.122, green: 0.098, blue: 0.122).opacity(0.4)
     static let glassWhite = Color.white.opacity(0.15)

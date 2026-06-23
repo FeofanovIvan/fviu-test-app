@@ -14,5 +14,5 @@ protocol VideoServicing {
         quality: VideoQuality
     ) async throws -> VideoGeneration
 
-    func fetchTemplates(userID: String) async throws -> [VideoTemplate]
+    func fetchTemplateCatalog(userID: String) async throws -> [VideoTemplateDTO]
 }

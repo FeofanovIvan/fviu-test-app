@@ -9,40 +9,30 @@ import SwiftUI
 
 struct RemoteVideoThumbnail: View {
     let url: URL?
+    var isActive: Bool = true
+    var isOnScreen: Bool = true
 
-    @State private var frame: UIImage?
+    @State private var player: AVPlayer?
+    @State private var loopObserver: NSObjectProtocol?
+
+    @State private var requestID = UUID()
+    @State private var loadTask: Task<Void, Never>?
+    @State private var loadedURL: URL?
 
     var body: some View {
         Group {
-            if let frame {
-                // Most PixVerse preview clips are vertical (9:16); several card slots in this app
-                // (catalog grid cells, the generator's carousel) are noticeably wider than that.
-                // No single crop-window placement (top/center/bottom) is correct for an arbitrary
-                // source — it always throws part of the composition away. Instead this never
-                // crops the actual subject: the full frame is shown with `.fit` (nothing lost),
-                // and a blurred, filled copy of the same frame fills the leftover space behind it
-                // so there's no empty letterboxing — the same technique album art / video players
-                // use for mismatched aspect ratios.
-                ZStack {
-                    Image(uiImage: frame)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .blur(radius: 24)
-                        .saturation(1.1)
-                        .overlay(Color.black.opacity(0.25))
-
-                    Image(uiImage: frame)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                }
-                .clipped()
+            if let player {
+                VideoPlayerLayerView(player: player, videoGravity: .resizeAspectFill)
             } else {
                 placeholder
             }
         }
-        .task(id: url) {
-            await loadFrame()
-        }
+        .clipped()
+        .onAppear { sync() }
+        .onDisappear { teardown() }
+        .onChange(of: isOnScreen) { _ in sync() }
+        .onChange(of: isActive) { _ in applyPlaybackState() }
+        .onChange(of: url) { _ in sync() }
     }
 
     private var placeholder: some View {
@@ -53,19 +43,89 @@ struct RemoteVideoThumbnail: View {
         )
     }
 
-    private func loadFrame() async {
-        frame = nil
-        guard let url else { return }
+    @MainActor
+    private func sync() {
+        loadTask?.cancel()
+        let id = UUID()
+        requestID = id
 
-        let asset = AVURLAsset(url: url)
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-
-        do {
-            let cgImage = try await generator.image(at: .zero).image
-            frame = UIImage(cgImage: cgImage)
-        } catch {
-            frame = nil
+        guard let url, isOnScreen || isActive else {
+            loadTask = nil
+            teardownPlayer()
+            return
         }
+
+        loadTask = Task {
+            await loadAndPrepare(url: url, requestID: id)
+        }
+    }
+
+    @MainActor
+    private func loadAndPrepare(url: URL, requestID id: UUID) async {
+        do {
+            let priority: PreviewPriority = isActive ? .active : .prefetch
+            let localURL = try await VideoPreviewPrefetcher.shared.localURL(for: url, priority: priority)
+            guard requestID == id else { return }
+            preparePlayer(localURL)
+        } catch is CancellationError {
+        } catch {
+        }
+    }
+
+    @MainActor
+    private func preparePlayer(_ localURL: URL) {
+        if loadedURL != localURL {
+            teardownPlayer()
+            loadedURL = localURL
+        }
+
+        guard player == nil else {
+            applyPlaybackState()
+            return
+        }
+
+        let item = AVPlayerItem(url: localURL)
+        let newPlayer = AVPlayer(playerItem: item)
+        newPlayer.isMuted = true
+        newPlayer.actionAtItemEnd = .none
+
+        loopObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak newPlayer] _ in
+            newPlayer?.seek(to: .zero)
+            newPlayer?.play()
+        }
+
+        player = newPlayer
+        applyPlaybackState()
+    }
+
+    @MainActor
+    private func applyPlaybackState() {
+        guard let player else { return }
+        if isActive {
+            player.play()
+        } else {
+            player.pause()
+        }
+    }
+
+    private func teardown() {
+        loadTask?.cancel()
+        loadTask = nil
+        teardownPlayer()
+    }
+
+    @MainActor
+    private func teardownPlayer() {
+        if let loopObserver {
+            NotificationCenter.default.removeObserver(loopObserver)
+        }
+        loopObserver = nil
+        player?.pause()
+        player = nil
+        loadedURL = nil
     }
 }

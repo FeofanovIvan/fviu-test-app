@@ -18,8 +18,10 @@ enum AppRoute: Hashable {
 
     var requiresPremiumAccess: Bool {
         switch self {
-        case .chat, .chatSession, .chatHistory, .videoGenerator, .videoHistory, .videoTemplateDetail:
+        case .chat, .chatSession, .chatHistory:
             return true
+        case .videoGenerator, .videoHistory, .videoTemplateDetail:
+            return !AppConfig.isVideoAccessFree
         case .paywall, .settings:
             return false
         }
