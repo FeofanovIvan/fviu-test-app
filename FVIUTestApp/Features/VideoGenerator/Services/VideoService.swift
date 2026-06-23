@@ -1,3 +1,9 @@
+//
+//  VideoService.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import Foundation
 
 final class VideoService: VideoServicing {
@@ -81,6 +87,39 @@ final class VideoService: VideoServicing {
         }
 
         throw AppError(title: L10n.videoGenerationErrorTitle, message: L10n.videoGenerationErrorMessage)
+    }
+
+    func fetchTemplates(userID: String) async throws -> [VideoTemplate] {
+        let endpoint = Endpoint(
+            baseURL: AppConfig.videoBaseURL,
+            path: "/api/v1/get_templates/\(AppConfig.apiApplicationID)",
+            queryItems: [
+                URLQueryItem(name: "user_id", value: userID)
+            ]
+        )
+
+        do {
+            let response = try await networkClient.request(endpoint, as: TemplatesCatalogResponse.self)
+            return response.templates
+                .filter(\.isActive)
+                .compactMap { dto in
+                    let previewURLString = dto.previewLarge ?? dto.previewSmall
+                    guard let previewURLString, let previewURL = URL(string: previewURLString) else {
+                        return nil
+                    }
+
+                    return VideoTemplate(
+                        title: dto.name,
+                        category: dto.category,
+                        prompt: dto.prompt,
+                        previewURL: previewURL
+                    )
+                }
+        } catch let error as NetworkError {
+            throw error.appError
+        } catch {
+            throw AppError.unknown
+        }
     }
 
     private func formURLEncodedData(_ fields: [String: String]) -> Data {

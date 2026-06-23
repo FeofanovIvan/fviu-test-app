@@ -1,5 +1,10 @@
+//
+//  VideoGeneration.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import Foundation
-import SwiftUI
 
 enum VideoAspectRatio: String, CaseIterable, Codable, Identifiable {
     case portrait = "9:16"
@@ -23,10 +28,7 @@ struct VideoTemplate: Identifiable, Equatable {
     let title: String
     let category: String
     let prompt: String
-    let colors: [Color]
-    /// Asset catalog name of the template's thumbnail/preview photo (Figma export).
-    let imageAssetName: String
-    /// How many source photos this template needs from the user (most need one; a few need two).
+    let previewURL: URL?
     let requiredPhotoCount: Int
 
     init(
@@ -34,18 +36,22 @@ struct VideoTemplate: Identifiable, Equatable {
         title: String,
         category: String,
         prompt: String,
-        colors: [Color],
-        imageAssetName: String = "VideoTemplateSample",
+        previewURL: URL? = nil,
         requiredPhotoCount: Int = 1
     ) {
         self.id = id
         self.title = title
         self.category = category
         self.prompt = prompt
-        self.colors = colors
-        self.imageAssetName = imageAssetName
+        self.previewURL = previewURL
         self.requiredPhotoCount = requiredPhotoCount
     }
+
+    static let placeholder = VideoTemplate(
+        title: "",
+        category: "",
+        prompt: ""
+    )
 }
 
 struct SelectedVideoPhoto: Equatable {
