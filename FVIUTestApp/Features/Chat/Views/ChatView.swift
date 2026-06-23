@@ -1,3 +1,9 @@
+//
+//  ChatView.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import SwiftUI
 
 struct ChatView: View {
@@ -6,10 +12,6 @@ struct ChatView: View {
     @FocusState private var isInputFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
-    /// `.task` re-runs every time this view re-becomes the top of the NavigationStack (e.g.
-    /// when popping back from Chat History), which would otherwise re-trigger the focus delay
-    /// below on every return trip. This flag makes the auto-focus-on-open behavior fire only
-    /// once, the first time the screen is actually opened.
     @State private var hasAutoFocusedOnce = false
 
     init(viewModel: ChatViewModel) {
@@ -56,11 +58,6 @@ struct ChatView: View {
                     }
                 }
 
-                // The bar is always part of the VStack — it is never conditionally hidden.
-                // SwiftUI's automatic keyboard-avoidance safe-area inset proved unreliable here
-                // (it could settle at zero after a navigation push/pop, leaving the bar rendered
-                // under the keyboard), so the bottom inset is ignored entirely and the bar's
-                // position is driven manually from real keyboard-frame notifications instead.
                 ChatInputBar(
                     text: $viewModel.draft,
                     isFocused: $isInputFocused,
@@ -69,9 +66,6 @@ struct ChatView: View {
                 ) {
                     Task {
                         await viewModel.send()
-                        // Once the AI has finished responding, dismiss the keyboard automatically.
-                        // The input bar itself always stays visible — its position no longer
-                        // depends on focus state at all.
                         isInputFocused = false
                     }
                 }
@@ -274,8 +268,6 @@ private struct ChatInputBar: View {
     @Binding var text: String
     var isFocused: FocusState<Bool>.Binding
     let isSendEnabled: Bool
-    /// The on-screen keyboard already has its own dictation/mic button, so our mic icon
-    /// is only shown in the "collapsed" (keyboard-hidden) state — never alongside the keyboard.
     let isKeyboardVisible: Bool
     let onSend: () -> Void
 
@@ -399,9 +391,6 @@ private struct TypingIndicatorView: View {
     }
 }
 
-/// A single dot in the typing indicator. The accent dot carries the Figma gradient fill
-/// and the other two stay dim white, while all three gently bounce in a staggered wave —
-/// the conventional "AI is typing" animation.
 private struct TypingDot: View {
     let size: CGFloat
     let isAccent: Bool

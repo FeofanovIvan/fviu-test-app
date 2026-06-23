@@ -1,3 +1,9 @@
+//
+//  ChatHistoryView.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import SwiftUI
 
 struct ChatHistoryView: View {
@@ -79,7 +85,6 @@ struct ChatHistoryView: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(AppColors.primaryText)
 
-                // Figma "Frame 1597881446": rows are stacked with a 12pt gap.
                 VStack(spacing: 12) {
                     ForEach(sessions) { session in
                         ChatHistoryRow(session: session) {
@@ -142,9 +147,6 @@ private struct ChatHistorySectionGroup: Identifiable {
     var id: Date { date }
 }
 
-/// Matches the Figma "icon/Generate B" row spec exactly: 72pt tall, 24pt corner radius,
-/// 16/24 vertical/horizontal padding, "#1F191F66" background fill, 28x28 icon (no circular
-/// backdrop), 20px semibold title, and a 14px regular timestamp at 50% opacity white.
 private struct ChatHistoryRow: View {
     let session: ChatSession
     let action: () -> Void
