@@ -1,8 +1,11 @@
+//
+//  VideoCatalogView.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import SwiftUI
 
-/// First screen of the AI Video module — header (same layout as the chat header, swapped icon) +
-/// horizontally scrolling category tabs + a 2-column grid of templates. Selecting a template
-/// pushes the detail/generator screen (`VideoGeneratorView`).
 struct VideoCatalogView: View {
     @StateObject private var viewModel: VideoCatalogViewModel
     @Environment(\.dismiss) private var dismiss
@@ -17,18 +20,14 @@ struct VideoCatalogView: View {
 
             VStack(spacing: 0) {
                 catalogHeader
-
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: AppSpacing.large) {
-                        categoryTabs
-                        templateGrid
-                    }
-                    .padding(AppSpacing.screen)
-                }
+                content
             }
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
+        .task {
+            await viewModel.load()
+        }
         .alert(
             L10n.photoAccessAlertTitle,
             isPresented: $viewModel.isPhotoAccessDeniedAlertPresented
@@ -39,6 +38,28 @@ struct VideoCatalogView: View {
             }
         } message: {
             Text(L10n.photoAccessAlertMessage)
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch viewModel.state {
+        case .idle, .loading:
+            LoadingStateView(title: L10n.videoCatalogLoading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .error(let error):
+            ErrorStateView(error: error) {
+                Task { await viewModel.retry() }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .success:
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: AppSpacing.large) {
+                    categoryTabs
+                    templateGrid
+                }
+                .padding(AppSpacing.screen)
+            }
         }
     }
 
@@ -149,11 +170,6 @@ struct VideoCatalogView: View {
 }
 
 private struct CatalogTemplateCard: View {
-    /// Figma was designed against a 390x844 reference screen (iPhone 14/15/16 logical size),
-    /// with the card at 171x232 / 24pt corners / an 8pt gap between cards on that exact screen.
-    /// Every other screen size scales all three numbers by the same factor — device width over
-    /// the reference width — so cards keep their proportions and the gaps between them never
-    /// collapse or grow out of step with the cards themselves.
     private static let referenceCardWidth: CGFloat = 171
     private static let referenceCardHeight: CGFloat = 232
     private static let referenceCornerRadius: CGFloat = 24
@@ -171,9 +187,7 @@ private struct CatalogTemplateCard: View {
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
-                Image(template.imageAssetName)
-                    .resizable()
-                    .scaledToFill()
+                RemoteVideoThumbnail(url: template.previewURL)
                     .frame(width: Self.cardWidth, height: Self.cardHeight)
                     .clipped()
 

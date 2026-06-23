@@ -1,4 +1,9 @@
-import AVFoundation
+//
+//  VideoHistoryView.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import SwiftUI
 
 struct VideoHistoryView: View {
@@ -120,30 +125,12 @@ struct VideoHistoryView: View {
 private struct VideoHistoryThumbnail: View {
     let generation: VideoGeneration
     let isTall: Bool
-    @State private var thumbnail: UIImage?
 
     var body: some View {
-        Group {
-            if let thumbnail {
-                Image(uiImage: thumbnail)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                fallbackImage
-            }
-        }
-        .frame(width: Metrics.thumbnailWidth, height: isTall ? Metrics.tallThumbnailHeight : Metrics.shortThumbnailHeight)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.thumbnailCornerRadius))
-        .clipped()
-        .task(id: resultURL) {
-            await loadThumbnail()
-        }
-    }
-
-    private var fallbackImage: some View {
-        Image("VideoTemplateSample")
-            .resizable()
-            .scaledToFill()
+        RemoteVideoThumbnail(url: resultURL)
+            .frame(width: Metrics.thumbnailWidth, height: isTall ? Metrics.tallThumbnailHeight : Metrics.shortThumbnailHeight)
+            .clipShape(RoundedRectangle(cornerRadius: Metrics.thumbnailCornerRadius))
+            .clipped()
     }
 
     private var resultURL: URL? {
@@ -151,24 +138,6 @@ private struct VideoHistoryThumbnail: View {
             return url
         }
         return nil
-    }
-
-    /// History thumbnails show a real frame grabbed from the generated video rather than the
-    /// video itself — `AsyncImage` can't decode video data, so this generates a still frame via
-    /// `AVAssetImageGenerator` instead of silently falling back to the bundled mock artwork.
-    private func loadThumbnail() async {
-        guard let resultURL else { return }
-
-        let asset = AVURLAsset(url: resultURL)
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-
-        do {
-            let cgImage = try await generator.image(at: .zero).image
-            thumbnail = UIImage(cgImage: cgImage)
-        } catch {
-            thumbnail = nil
-        }
     }
 }
 

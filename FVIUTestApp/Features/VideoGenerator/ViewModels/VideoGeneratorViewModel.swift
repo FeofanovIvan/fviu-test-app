@@ -1,3 +1,9 @@
+//
+//  VideoGeneratorViewModel.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import Foundation
 import PhotosUI
 
@@ -10,8 +16,6 @@ final class VideoGeneratorViewModel: ObservableObject {
     @Published var selectedPhotos: [SelectedVideoPhoto?]
     @Published private(set) var state: LoadableState<VideoGeneration> = .idle
     @Published private(set) var history: [VideoGeneration]
-    /// In-app fallback for the "Create" tap: iOS only shows its own access dialog once, so once
-    /// the user has denied it we show this alert every time instead, with a path to Settings.
     @Published var isPhotoAccessDeniedAlertPresented = false
 
     private let videoService: VideoServicing
@@ -19,6 +23,7 @@ final class VideoGeneratorViewModel: ObservableObject {
     private let subscriptionManager: SubscriptionManaging
     private let historyStore: VideoHistoryStoring
     private let photoAccessManager: PhotoLibraryAccessManaging
+    private let templateStore: VideoTemplateStore
     private let userID: String
 
     init(
@@ -27,6 +32,7 @@ final class VideoGeneratorViewModel: ObservableObject {
         subscriptionManager: SubscriptionManaging,
         historyStore: VideoHistoryStoring,
         photoAccessManager: PhotoLibraryAccessManaging,
+        templateStore: VideoTemplateStore,
         templateID: UUID,
         userID: String = UUID().uuidString
     ) {
@@ -35,10 +41,11 @@ final class VideoGeneratorViewModel: ObservableObject {
         self.subscriptionManager = subscriptionManager
         self.historyStore = historyStore
         self.photoAccessManager = photoAccessManager
+        self.templateStore = templateStore
         self.userID = userID
         self.history = historyStore.generations()
 
-        let template = VideoTemplateCatalog.template(id: templateID) ?? VideoTemplateCatalog.templates[0]
+        let template = templateStore.template(id: templateID) ?? .placeholder
         self.selectedTemplate = template
         self.prompt = template.prompt
         self.selectedPhotos = Array(repeating: nil, count: template.requiredPhotoCount)
@@ -48,10 +55,8 @@ final class VideoGeneratorViewModel: ObservableObject {
         !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedPhotos.prefix(selectedTemplate.requiredPhotoCount).allSatisfy { $0 != nil } && !state.isLoading
     }
 
-    /// Templates the header carousel pages through — the same category as the selected template,
-    /// so swiping sideways stays inside the set the user already chose to browse on the catalog.
     var carouselTemplates: [VideoTemplate] {
-        VideoTemplateCatalog.templates(in: selectedTemplate.category)
+        templateStore.templates(in: selectedTemplate.category)
     }
 
     func selectTemplate(_ template: VideoTemplate) {
@@ -61,9 +66,6 @@ final class VideoGeneratorViewModel: ObservableObject {
         state = .idle
     }
 
-    /// Gate for the "+" add-photo button specifically. Unlike `generate()`, a denial here sends
-    /// the user back to the catalog screen instead of keeping them on this one — that's the
-    /// confirmed behavior for this exact entry point (the actual gallery-access trigger).
     func requestPhotoAccessForPicker() async -> Bool {
         let hasAccess = photoAccessManager.isAuthorized ? true : await photoAccessManager.requestAccess()
         guard hasAccess else {
@@ -100,9 +102,6 @@ final class VideoGeneratorViewModel: ObservableObject {
         let prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard canGenerate else { return }
 
-        // Re-checked on every tap rather than once at screen entry: access may have been denied
-        // earlier, or revoked since. We stay on this screen either way; on denial we surface our
-        // own alert (the native one only shows once per install) instead of bouncing the user away.
         let hasPhotoAccess = photoAccessManager.isAuthorized ? true : await photoAccessManager.requestAccess()
         guard hasPhotoAccess else {
             isPhotoAccessDeniedAlertPresented = true

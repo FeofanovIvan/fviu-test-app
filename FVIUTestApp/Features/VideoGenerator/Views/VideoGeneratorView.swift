@@ -1,12 +1,14 @@
+//
+//  VideoGeneratorView.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import AVFoundation
 import PhotosUI
 import Photos
 import SwiftUI
 
-/// Template-detail / generator screen — reached from the catalog. Layout follows the approved
-/// reference exactly: back chevron + centered template title, one centered template image,
-/// gradient-bordered "+" that opens the system photo picker, editable Format/Quality rows
-/// and the Create action. Nothing below Create — no error/empty hint, no history grid.
 struct VideoGeneratorView: View {
     @StateObject private var viewModel: VideoGeneratorViewModel
     @Environment(\.dismiss) private var dismiss
@@ -63,8 +65,6 @@ struct VideoGeneratorView: View {
         }
     }
 
-    /// Back chevron pinned leading, template title centered independently in a `ZStack` — matches
-    /// the reference layout exactly (distinct from the catalog header's leading-icon style).
     private var header: some View {
         ZStack {
             HStack {
@@ -218,9 +218,6 @@ struct VideoGeneratorView: View {
 
 }
 
-/// All point values below come from the approved reference, measured against a 390x844 screen
-/// (iPhone 14/15/16 logical size). Every other screen width scales them by the same factor — device
-/// width over the reference width — so the layout keeps its exact proportions everywhere else.
 private enum Metrics {
     private static let scale = ScreenScale.bounded
 
@@ -229,8 +226,8 @@ private enum Metrics {
     static var contentBottomPadding: CGFloat { 28 * scale }
     static var sectionSpacing: CGFloat { 18 * scale }
 
-    static var previewWidth: CGFloat { 318 * scale }
-    static var previewHeight: CGFloat { 236 * scale }
+    static var previewWidth: CGFloat { 144 * scale }
+    static var previewHeight: CGFloat { 272 * scale }
     static var previewSpacing: CGFloat { 14 * scale }
     static var previewCornerRadius: CGFloat { 20 * scale }
 
@@ -309,9 +306,7 @@ private struct TemplatePagingCarousel: View {
         GeometryReader { proxy in
             HStack(spacing: Metrics.previewSpacing) {
                 ForEach(templates) { template in
-                    Image(template.imageAssetName)
-                        .resizable()
-                        .scaledToFill()
+                    RemoteVideoThumbnail(url: template.previewURL)
                         .frame(width: Metrics.previewWidth, height: Metrics.previewHeight)
                         .clipShape(RoundedRectangle(cornerRadius: Metrics.previewCornerRadius))
                         .clipped()
@@ -679,8 +674,6 @@ private struct VideoResultView: View {
         return nil
     }
 
-    /// Builds the player lazily once the result preview appears, and tears it down when it
-    /// leaves the view hierarchy so playback/network activity doesn't continue in the background.
     private func preparePlayer() {
         guard player == nil, let resultURL else { return }
 
@@ -752,12 +745,6 @@ private struct VideoResultView: View {
                 }
             }
         } catch {
-            // The API's `video_url` is a plain remote file (see openapi schema — `video_url` is
-            // just a string, not an HLS manifest), so a direct byte download is the right
-            // approach here. `AVAssetExportSession` was tried instead and produced internal
-            // VideoToolbox/CoreMedia failures ("Fig"/"VRP"/"Remaker" in the console) on both
-            // Simulator and a real device, so that path was reverted in favor of this simpler,
-            // more reliable one. Logged in DEBUG to make any remaining failure diagnosable.
             #if DEBUG
             debugPrint("Video save to gallery failed:", error)
             #endif
@@ -773,9 +760,6 @@ private struct VideoResultView: View {
     }
 }
 
-/// Lightweight `AVPlayerLayer` host. Used instead of AVKit's `VideoPlayer` so the generated video
-/// renders with none of AVKit's own playback chrome — the custom play icon/Replace pill drawn by
-/// `VideoResultView` are the only controls, matching the Figma overlay exactly.
 private struct VideoLayerView: UIViewRepresentable {
     let player: AVPlayer
 
