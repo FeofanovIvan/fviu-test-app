@@ -1,3 +1,9 @@
+//
+//  RootView.swift
+//  FVIUTestApp
+//
+//  Created by Ivan Feofanov on 20/06/26.
+//
 import SwiftUI
 
 struct RootView: View {
@@ -132,10 +138,6 @@ private struct HomeView: View {
         .buttonStyle(.plain)
     }
 
-    /// Figma reference widths for the functions row (390pt canvas): 172 + 8 gap + 178 = 358.
-    /// The actual on-screen width varies per device, so the two columns are sized as a
-    /// proportion of whatever width is available rather than hard-coded points — this keeps
-    /// the row visually aligned with the (flexible-width) ask bar above it on every device.
     private static let primaryCardRatio: CGFloat = 172.0 / 350.0
     private static let secondaryColumnRatio: CGFloat = 178.0 / 350.0
     private static let functionsGap: CGFloat = 8
@@ -270,8 +272,6 @@ private struct HomeSmallToolCard: View {
                     .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
-
-                Spacer(minLength: 0)
             }
             .padding(AppSpacing.medium)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
