@@ -31,7 +31,11 @@ final class VideoCatalogViewModel: ObservableObject {
         templateStore.$state
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newState in
-                self?.state = newState
+                guard let self else { return }
+                self.state = newState
+                if case .success = newState {
+                    self.ensureSelectedCategory()
+                }
             }
             .store(in: &cancellables)
     }
@@ -44,16 +48,12 @@ final class VideoCatalogViewModel: ObservableObject {
 
     func load() async {
         await templateStore.loadIfNeeded()
-        if selectedCategory.isEmpty {
-            selectedCategory = categories.first ?? ""
-        }
+        ensureSelectedCategory()
     }
 
     func retry() async {
         await templateStore.reload()
-        if selectedCategory.isEmpty {
-            selectedCategory = categories.first ?? ""
-        }
+        ensureSelectedCategory()
     }
 
     func selectCategory(_ category: String) {
@@ -78,5 +78,15 @@ final class VideoCatalogViewModel: ObservableObject {
 
     func openHistory() {
         appState?.navigateToPremiumRoute(.videoHistory)
+    }
+
+    private func ensureSelectedCategory() {
+        guard !categories.isEmpty else {
+            selectedCategory = ""
+            return
+        }
+        if selectedCategory.isEmpty || !categories.contains(selectedCategory) {
+            selectedCategory = categories[0]
+        }
     }
 }
